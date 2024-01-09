@@ -6,10 +6,16 @@ name: Build RESTEasy Development Tools
 on:
   push:
     branches:
-      - 'main'
+      - '*'
+    paths:
+      - '**/pom.xml'
+      - 'ide-config/**'
+      - '.github/workflows/**'
   pull_request:
-    branches:
-      - '**'
+    paths:
+      - '**/pom.xml'
+      - 'ide-config/**'
+      - '.github/workflows/**'
 
 # Only run the latest job
 concurrency:
@@ -36,3 +42,49 @@ jobs:
       - name: Build with Maven Java ${{ matrix.java }}}
         run:  |
           mvn clean install -U -B -fae
+
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: build
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+        with:
+          path: resteasy-dev-tools
+
+      - name: Set up the JDKs
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          architecture: x64
+          java-version: 21
+
+      - name: Install the snapshot
+        run: |
+          cd resteasy-dev-tools
+          mvn -B -ntp install
+
+      - name: Check out RESTEasy Examples
+        uses: actions/checkout@v4
+        with:
+          repository: resteasy/resteasy-examples
+          path: resteasy-examples
+      - name: Test RESTEasy Examples with updated parent
+        run: |
+          cd resteasy-examples
+          mvn -B -ntp versions:update-parent -DallowSnapshots=true -N
+          git diff pom.xml
+          mvn -B -ntp install
+
+      - name: Check out RESTEasy MicroProfile
+        uses: actions/checkout@v4
+        with:
+          repository: resteasy/resteasy-microprofile
+          path: resteasy-microprofile
+      - name: Test RESTEasy MicroProfile with updated parent
+        run: |
+          cd resteasy-microprofile
+          mvn -B -ntp versions:update-parent -DallowSnapshots=true -N
+          git diff pom.xml
+          mvn -B -ntp install
